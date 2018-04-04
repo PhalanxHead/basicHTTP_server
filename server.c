@@ -12,6 +12,7 @@ The port number is passed as an argument
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include "respond.h"
 
 
 int main(int argc, char **argv)
@@ -32,8 +33,7 @@ int main(int argc, char **argv)
 	
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
-	if (sockfd < 0) 
-	{
+	if (sockfd < 0) {
 		perror("ERROR opening socket");
 		exit(1);
 	}
@@ -54,8 +54,7 @@ int main(int argc, char **argv)
 	 /* Bind address to the socket */
 	
 	if (bind(sockfd, (struct sockaddr *) &serv_addr,
-			sizeof(serv_addr)) < 0) 
-	{
+			sizeof(serv_addr)) < 0) {
 		perror("ERROR on binding");
 		exit(1);
 	}
@@ -73,8 +72,7 @@ int main(int argc, char **argv)
 	newsockfd = accept(	sockfd, (struct sockaddr *) &cli_addr, 
 						&clilen);
 
-	if (newsockfd < 0) 
-	{
+	if (newsockfd < 0) {
 		perror("ERROR on accept");
 		exit(1);
 	}
@@ -86,18 +84,17 @@ int main(int argc, char **argv)
 	
 	n = read(newsockfd,buffer,255);
 
-	if (n < 0) 
-	{
+	if (n < 0) {
 		perror("ERROR reading from socket");
 		exit(1);
 	}
 	
 	printf("Here is the message: %s\n",buffer);
 
-	n = write(newsockfd,"I got your message",18);
+    char* reply = respond();
+	n = send(newsockfd, reply, strlen(reply), 0);
 	
-	if (n < 0) 
-	{
+	if (n < 0) {
 		perror("ERROR writing to socket");
 		exit(1);
 	}
