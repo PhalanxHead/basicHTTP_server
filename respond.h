@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include "respond.c"
 
-char* respond();
+char* respond(char* webRoot, char* request);
 
 
 #endif /* RESPOND_H */

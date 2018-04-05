@@ -1,14 +1,14 @@
 ##Adapted from http://www.cs.colby.edu/maxwell/courses/tutorials/maketutor/
-CC=gcc
-CFLAGS=-Wall -Wextra -std=gnu99 -I. -O3
-OBJ = server.o respond.o
-EXE = server
+CC		=	gcc
+CFLAGS	=	-Wall
+OBJ 	= 	server.o
+EXE 	= 	server
 
 ##Create .o files from .c files. Searches for .c files with same .o names given in OBJ
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-##Create executable linked file from object files. 
+##Create executable linked file from object files.
 $(EXE): $(OBJ)
 	gcc -o $@ $^ $(CFLAGS)
 
@@ -18,4 +18,4 @@ clean:
 
 ##Performs clean (i.e. delete object files) and deletes executable
 clobber: clean
-	/bin/rm $(EXE) 
+	/bin/rm $(EXE)
