@@ -1,7 +1,7 @@
 ##Adapted from http://www.cs.colby.edu/maxwell/courses/tutorials/maketutor/
 CC=gcc
 CFLAGS=-Wall -Wextra -std=gnu99 -I. -O3
-OBJ = server.o 
+OBJ = server.o respond.o
 EXE = server
 
 ##Create .o files from .c files. Searches for .c files with same .o names given in OBJ
