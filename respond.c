@@ -7,24 +7,48 @@
  * Comments:    Very Much Not Done
  */
 
+#define BUFFSIZE 4096
 
 #include<stdio.h>
 #include<stdlib.h>
 
-char* respond(char* webRoot, char* request) {
-    char* response = (char*)malloc(sizeof(char[256]));
+/* ************************************************************************* */
+
+/*
+ * Generates a 404 message and returns it.
+ */
+char* fourohfour() {
+    char* response = (char*)malloc(sizeof(char[BUFFSIZE]));
     response = "HTTP/1.0 404 Not Found\n"
-    "Content-Length: 204\n"
+    "Content-Length: 330\n"
     "Connection: close\n"
     "Content-Type: text/html\n"
     "\n"
-    "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n"
+    "<!DOCTYPE html>\n"
     "<html><head>\n"
-    "<title>404 Not Found</title>\n"
-    "</head><body>\n"
-    "<h1>404: File Not Found</h1>\n"
-    "<p>The requested URL was not found on this server.</p>\n"
+    "<title>404: File Not Found</title>\n"
+    "<style>\n"
+    ".center {\n"
+        "max-width: 600px;\n"
+        "margin: auto;\n"
+    "}\n"
+    "</style></head>\n"
+    "<body>\n"
+        "<div class=\"center\">\n"
+        "<h1>404: File Not Found</h1>\n"
+        "<p>We couldn't find the file you requested. Perhaps there's a typo in your URL?</p>\n"
+        "</div>\n"
     "</body></html>\n";
+
+    return response;
+}
+
+/* ************************************************************************* */
+
+char* respond(char* webRoot, char* request) {
+    char* response;
+
+    response = fourohfour();
 
     return response;
 }
