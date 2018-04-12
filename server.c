@@ -58,12 +58,14 @@ int sendall(int sockfd, char *buf, int *len) {
  */
 void server_loop(int sockfd, char* webRoot) {
 	struct sockaddr_storage their_addr;
+    struct sockaddr_in *sin;
 	socklen_t sin_size;
 	int requestLen;
 	int newsockfd;
 	int replyLen;
 	char* reply;
-	char* request, fileReq;
+	char* request;
+    char* fileReq;
 
 	/* Accept connections ad infinitum */
 	while(1) {
@@ -74,7 +76,10 @@ void server_loop(int sockfd, char* webRoot) {
 			continue;
 		}
 
-		printf("Got Connection.\n");
+        /* Report Arriving Connection */
+        sin = (struct sockaddr_in*)&their_addr;
+        unsigned char *ip = (unsigned char*)&sin->sin_addr.s_addr;
+		printf("Got Connection from %d.%d.%d.%d:%d\n", ip[0],ip[1],ip[2],ip[3], sin->sin_port);
 
 		/* Start a child process to handle the request */
 		if (!fork()) {
@@ -82,9 +87,7 @@ void server_loop(int sockfd, char* webRoot) {
 			the listener socket ubder the child */
 			close(sockfd);
 
-			request = (char*)malloc(sizeof(char) * BUFFSIZE);
-			bzero((char*) &request, sizeof(request));
-
+            /* Read Request */
 			requestLen = recv(newsockfd, &request, BUFFSIZE, 0);
 			fileReq = parseRequest(request);
 
@@ -94,13 +97,14 @@ void server_loop(int sockfd, char* webRoot) {
 
 			/* Check that everything sends without error */
 			if (sendall(newsockfd,reply, &replyLen) == -1) {
-				perror("send");
+				perror("Error sending file");
 			}
 			/* Close the socket and kill the child */
 			close(newsockfd);
 			exit(EXIT_SUCCESS);
 		}
 		/* Close the child socket under the parent */
+        printf("Closing connection from %d.%d.%d.%d:%d\n", ip[0],ip[1],ip[2],ip[3], sin->sin_port);
 		close(newsockfd);
 	}
 
