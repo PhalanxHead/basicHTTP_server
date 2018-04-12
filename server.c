@@ -17,6 +17,7 @@
 #include <unistd.h>
 
 #define BUFFSIZE 4096
+#define DEF_WEB "./test"
 
 /* ************************************************************************* */
 
@@ -58,16 +59,17 @@ int sendall(int sockfd, char *buf, int *len) {
 void server_loop(int sockfd, char* webRoot) {
 	struct sockaddr_storage their_addr;
 	socklen_t sin_size;
-	int newfd;
+	int requestLen;
+	int newsockfd;
 	int replyLen;
 	char* reply;
-	char* request = "file.html";
+	char* request, fileReq;
 
 	/* Accept connections ad infinitum */
 	while(1) {
 		sin_size = sizeof(their_addr);
-		newfd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
-		if (newfd == -1) {
+		newsockfd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
+		if (newsockfd == -1) {
 			perror("accept");
 			continue;
 		}
@@ -80,22 +82,26 @@ void server_loop(int sockfd, char* webRoot) {
 			the listener socket ubder the child */
 			close(sockfd);
 
-			
+			request = (char*)malloc(sizeof(char) * BUFFSIZE);
+			bzero((char*) &request, sizeof(request));
+
+			requestLen = recv(newsockfd, &request, BUFFSIZE, 0);
+			fileReq = parseRequest(request);
 
 			/* Handle Request */
-			reply = respond(webRoot, request);
+			reply = respond(webRoot, fileReq);
 			replyLen = strlen(reply);
 
 			/* Check that everything sends without error */
-			if (sendall(newfd,reply, &replyLen) == -1) {
+			if (sendall(newsockfd,reply, &replyLen) == -1) {
 				perror("send");
 			}
 			/* Close the socket and kill the child */
-			close(newfd);
+			close(newsockfd);
 			exit(EXIT_SUCCESS);
 		}
 		/* Close the child socket under the parent */
-		close(newfd);
+		close(newsockfd);
 	}
 
 	return;
@@ -117,7 +123,7 @@ int main(int argc, char **argv) {
 
 	/* Write default file root if it's not specified */
 	} else if(argc == 2) {
-		webRoot = "./";
+		webRoot = DEF_WEB;
 
 	} else {
 		webRoot = argv[2];

@@ -75,7 +75,7 @@ char* fourohfour() {
 /* ************************************************************************* */
 
 /*
- * Concatonates 2 strings
+ * Concats 2 strings
  * Based on code from
  * https://stackoverflow.com/questions/8465006/how-do-i-concatenate-two-strings-in-c
  */
@@ -91,6 +91,9 @@ char* concat(char *s1, char *s2)
 
 /* ************************************************************************* */
 
+/*
+ * Forms the response to the HTTP Request
+ */
 char* respond(char* webRoot, char* request) {
     char* content;
     char* response;
@@ -100,7 +103,16 @@ char* respond(char* webRoot, char* request) {
         return fourohfour();
     }
 
-    response = "Response";
+    response = content;
 
     return response;
+}
+
+/* ************************************************************************* */
+
+/*
+ * Parse's the HTTP request and finds the requested file string.
+ */
+char* parseRequest(char* httpReq) {
+    return "/index.html";
 }
