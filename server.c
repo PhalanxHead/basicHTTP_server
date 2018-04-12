@@ -55,13 +55,13 @@ int sendall(int sockfd, char *buf, int *len) {
  * Code based on Beej's Guide to Network Programming
  * http://beej.us/guide/bgnet/html/single/bgnet.html
  */
-int server_loop(int sockfd, char* webRoot) {
+void server_loop(int sockfd, char* webRoot) {
 	struct sockaddr_storage their_addr;
 	socklen_t sin_size;
 	int newfd;
 	int replyLen;
 	char* reply;
-	char* request = "";
+	char* request = "file.html";
 
 	/* Accept connections ad infinitum */
 	while(1) {
@@ -80,6 +80,8 @@ int server_loop(int sockfd, char* webRoot) {
 			the listener socket ubder the child */
 			close(sockfd);
 
+			
+
 			/* Handle Request */
 			reply = respond(webRoot, request);
 			replyLen = strlen(reply);
@@ -90,13 +92,13 @@ int server_loop(int sockfd, char* webRoot) {
 			}
 			/* Close the socket and kill the child */
 			close(newfd);
-			exit(0);
+			exit(EXIT_SUCCESS);
 		}
 		/* Close the child socket under the parent */
 		close(newfd);
 	}
 
-	return 0;
+	return;
 }
 
 /* ************************************************************************* */
@@ -121,13 +123,12 @@ int main(int argc, char **argv) {
 		webRoot = argv[2];
 	}
 
-	 /* Create TCP socket */
-
+	 /* Create TCP socket, checking for errors */
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
 	if (sockfd < 0) {
 		perror("ERROR opening socket");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 
@@ -138,26 +139,23 @@ int main(int argc, char **argv) {
 	/* Create address we're going to listen on (given port number)
 	 - converted to network byte order & any IP address for
 	 this machine */
-
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_addr.s_addr = INADDR_ANY;
 	// store in machine-neutral format
 	serv_addr.sin_port = htons(portno);
 
 	 /* Bind address to the socket */
-
 	if (bind(sockfd, (struct sockaddr *) &serv_addr,
 			sizeof(serv_addr)) < 0) {
 		perror("ERROR on binding");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	/* Listen on socket - means we're ready to accept connections -
 	 incoming connection requests will be queued */
-
 	listen(sockfd,5);
 
-	printf("server: waiting for connections...\n");
+	printf("Server: Waiting for connections...\n");
 
 	server_loop(sockfd, webRoot);
 
