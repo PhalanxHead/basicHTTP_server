@@ -13,7 +13,6 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/sendfile.h>
 #include <netinet/in.h>
 #include <unistd.h>
 #include "respond.h"
@@ -76,30 +75,6 @@ int main(int argc, char **argv) {
 	 incoming connection requests will be queued */
 
 	listen(sockfd,5);
-
-	clilen = sizeof(cli_addr);
-
-	/* Accept a connection - block until a connection is ready to
-	 be accepted. Get back a new file descriptor to communicate on. */
-
-	newsockfd = accept(sockfd, (struct sockaddr*) &cli_addr, &clilen);
-
-	if (newsockfd < 0) {
-		perror("ERROR on accept");
-		exit(1);
-	}
-
-	bzero(buffer, BUFFSIZE);
-
-	/* Read characters from the connection,
-		then process */
-
-	n = read(newsockfd,buffer, BUFFSIZE-1);
-
-	if (n < 0) {
-		perror("ERROR reading from socket");
-		exit(1);
-	}
 
 	printf("server: waiting for connections...\n");
 
