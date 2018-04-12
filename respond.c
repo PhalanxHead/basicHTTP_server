@@ -38,7 +38,7 @@ fd = open(FILE_TO_SEND, O_RDONLY);
                exit(EXIT_FAILURE);
        }
 
-       /* Get file stats
+       // Get file stats
        if (fstat(fd, &file_stat) < 0)
        {
                fprintf(stderr, "Error fstat --> %s", strerror(errno));

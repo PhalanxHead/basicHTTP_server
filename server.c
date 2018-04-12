@@ -17,14 +17,94 @@
 #include <unistd.h>
 #include "respond.h"
 
-#define BUFFSIZE 256
+#define BUFFSIZE 4096
 
-/*****************************************************************************/
+/* ************************************************************************* */
+
+/**
+ * Ensures all data is sent through the TCP Socket
+ * Based on code from Beej's Guide to Netowrk Programming
+ * http://beej.us/guide/bgnet/html/single/bgnet.html
+ */
+
+int sendall(int sockfd, char *buf, int *len) {
+	// how many bytes we've sent
+    int total = 0;
+	// how many we have left to send
+    int bytesleft = *len;
+    int n;
+
+    while(total < *len) {
+        n = send(sockfd, buf+total, bytesleft, 0);
+        if (n == -1) { break; }
+        total += n;
+        bytesleft -= n;
+    }
+
+	// return number actually sent here
+    *len = total;
+
+	// return -1 on failure, 0 on success
+    return n==-1?-1:0;
+}
+
+/* ************************************************************************* */
+
+/**
+ * Main Accept Loop, allowing forking and HTTP response.
+ *
+ * Code based on Beej's Guide to Network Programming
+ * http://beej.us/guide/bgnet/html/single/bgnet.html
+ */
+int server_loop(int sockfd, char* webRoot) {
+	struct sockaddr_storage their_addr;
+	socklen_t sin_size;
+	int newfd;
+	int replyLen;
+	char* reply;
+	char* request = "";
+
+	/* Accept connections ad infinitum */
+	while(1) {
+		sin_size = sizeof(their_addr);
+		newfd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
+		if (newfd == -1) {
+			perror("accept");
+			continue;
+		}
+
+		printf("Got Connection.\n");
+
+		/* Start a child process to handle the request */
+		if (!fork()) {
+			/* The child isn't listening for new conenctions so we close
+			the listener socket ubder the child */
+			close(sockfd);
+
+			/* Handle Request */
+			reply = respond(webRoot, request);
+			replyLen = strlen(reply);
+
+			/* Check that everything sends without error */
+			if (sendall(newfd,reply, &replyLen) == -1) {
+				perror("send");
+			}
+			/* Close the socket and kill the child */
+			close(newfd);
+			exit(0);
+		}
+		/* Close the child socket under the parent */
+		close(newfd);
+	}
+
+	return 0;
+}
+
+/* ************************************************************************* */
 
 int main(int argc, char **argv) {
 	int sockfd, newsockfd, portno;// clilen;
 	char buffer[BUFFSIZE];
-	char* reply;
 	char* webRoot;
 	struct sockaddr_in serv_addr, cli_addr;
 	socklen_t clilen;
@@ -34,6 +114,7 @@ int main(int argc, char **argv) {
 		fprintf(stderr,"ERROR, no port provided\n");
 		exit(1);
 
+	/* Write default file root if it's not specified */
 	} else if(argc == 2) {
 		webRoot = "./";
 
@@ -61,7 +142,8 @@ int main(int argc, char **argv) {
 
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_addr.s_addr = INADDR_ANY;
-	serv_addr.sin_port = htons(portno);  // store in machine-neutral format
+	// store in machine-neutral format
+	serv_addr.sin_port = htons(portno);
 
 	 /* Bind address to the socket */
 
@@ -78,42 +160,7 @@ int main(int argc, char **argv) {
 
 	printf("server: waiting for connections...\n");
 
-	/* Code based on Beej's Guide to Network Programming
-	 *
-     * http://beej.us/guide/bgnet/html/single/bgnet.html
-	 */
-	while(1) {  // main accept() loop
-		sin_size = sizeof their_addr;
-		new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
-		if (new_fd == -1) {
-			perror("accept");
-			continue;
-		}
-
-		inet_ntop(their_addr.ss_family,
-			get_in_addr((struct sockaddr *)&their_addr),
-			s, sizeof s);
-		printf("server: got connection from %s\n", s);
-
-		if (!fork()) { // this is the child process
-			close(sockfd); // child doesn't need the listener
-			if (send(new_fd, "Hello, world!", 13, 0) == -1) {
-				perror("send");
-			}
-			close(new_fd);
-			exit(0);
-		}
-		close(new_fd);  // parent doesn't need this
-	}
-
-	char* request = "";
-    reply = respond(webRoot, request);
-	n = send(newsockfd, reply, strlen(reply), 0);
-
-	if (n < 0) {
-		perror("ERROR writing to socket");
-		exit(1);
-	}
+	server_loop(sockfd, webRoot);
 
 	/* close socket */
 
@@ -122,30 +169,4 @@ int main(int argc, char **argv) {
 	return 0;
 }
 
-
-/**
- * Ensures all data is sent through the TCP Socket
- * Based on code from Beej's Guide to Netowrk Programming
- * http://beej.us/guide/bgnet/html/single/bgnet.html
- */
-
-int sendall(int s, char *buf, int *len) {
-	// how many bytes we've sent
-    int total = 0;
-	// how many we have left to send
-    int bytesleft = *len;
-    int n;
-
-    while(total < *len) {
-        n = send(s, buf+total, bytesleft, 0);
-        if (n == -1) { break; }
-        total += n;
-        bytesleft -= n;
-    }
-
-	// return number actually sent here
-    *len = total;
-
-	// return -1 on failure, 0 on success
-    return n==-1?-1:0;
-}
+/* ************************************************************************* */
