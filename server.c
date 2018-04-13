@@ -16,9 +16,10 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <assert.h>
+#include "respond.h"
 
 #define BUFFSIZE 4096
-#define DEF_WEB "./test"
+#define DEF_WEB "./TestScript/test"
 
 /* ************************************************************************* */
 
@@ -51,83 +52,25 @@ int sendall(int sockfd, char *buf, int *len) {
 
 /* ************************************************************************* */
 
-/**
- * Main Accept Loop, allowing forking and HTTP response.
+/*
+ * Main Loop
+ * Based on code from Lab 4 in COMP30023
  *
- * Code based on Beej's Guide to Network Programming
- * http://beej.us/guide/bgnet/html/single/bgnet.html
  */
-void server_loop(int sockfd, char* webRoot) {
-	struct sockaddr_storage their_addr;
-    struct sockaddr_in *sin;
-	socklen_t sin_size;
-	int inRequestLen;
-	int newsockfd;
-	int replyLen;
-	char* reply;
-	char* inRequest;
+int main(int argc, char **argv)
+{
+	int sockfd, newsockfd, portno;// clilen;
+	char buffer[BUFFSIZE];
+	struct sockaddr_in serv_addr, cli_addr;
+	socklen_t clilen;
+	int n;
+    char* reply;
     char* fileReq;
+    char* webRoot = (char*)malloc(BUFFSIZE*sizeof(char));
+    int replyLen;
+    struct sockaddr_in *sin;
 
-	/* Accept connections ad infinitum */
-	while(1) {
-		sin_size = sizeof(their_addr);
-		newsockfd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
-		if (newsockfd == -1) {
-			perror("accept");
-			continue;
-		}
-
-        /* Report Arriving Connection */
-        sin = (struct sockaddr_in*)&their_addr;
-        unsigned char *ip = (unsigned char*)&sin->sin_addr.s_addr;
-		printf("Got Connection from %d.%d.%d.%d:%d\n", ip[0],ip[1],ip[2],ip[3], sin->sin_port);
-
-		/* Start a child process to handle the inRequestuest */
-		if (!fork()) {
-			/* The child isn't listening for new connections so we close
-			the listener socket under the child */
-			close(sockfd);
-
-            inRequest = (char*)malloc(BUFFSIZE*sizeof(char));
-            assert(inRequest);
-
-            /* Read inRequest */
-			inRequestLen = recv(newsockfd, &inRequest, BUFFSIZE - 1, 0);
-			fileReq = parseRequest(inRequest);
-
-            if(inRequestLen == 0) {
-                perror("ERROR reading from socket");
-            }
-
-			/* Handle inRequest */
-			reply = respond(webRoot, fileReq);
-			replyLen = strlen(reply);
-
-			/* Check that everything sends without error */
-			if (sendall(newsockfd,reply, &replyLen) == -1) {
-				perror("Error sending file");
-			}
-
-    		close(newsockfd);
-		}
-		/* Close the child socket under the parent */
-        printf("Closing connection from %d.%d.%d.%d:%d\n", ip[0],ip[1],ip[2],ip[3], sin->sin_port);
-        free(inRequest);
-        inRequest = NULL;
-		close(newsockfd);
-	}
-
-	return;
-}
-
-/* ************************************************************************* */
-
-int main(int argc, char **argv) {
-	int sockfd, portno;// clilen;
-	char* webRoot;
-	struct sockaddr_in serv_addr;
-
-	if (argc < 2) {
+    if (argc < 2) {
 		fprintf(stderr,"ERROR, no port provided\n");
 		exit(1);
 
@@ -139,12 +82,14 @@ int main(int argc, char **argv) {
 		webRoot = argv[2];
 	}
 
-	 /* Create TCP socket, checking for errors */
+	 /* Create TCP socket */
+
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
-	if (sockfd < 0) {
+	if (sockfd < 0)
+	{
 		perror("ERROR opening socket");
-		exit(EXIT_FAILURE);
+		exit(1);
 	}
 
 
@@ -157,29 +102,67 @@ int main(int argc, char **argv) {
 	 this machine */
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_addr.s_addr = INADDR_ANY;
-	// store in machine-neutral format
+    /* store in machine-neutral format */
 	serv_addr.sin_port = htons(portno);
 
 	 /* Bind address to the socket */
-	if (bind(sockfd, (struct sockaddr *) &serv_addr,
-			sizeof(serv_addr)) < 0) {
+	if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
 		perror("ERROR on binding");
-		exit(EXIT_FAILURE);
+		exit(1);
 	}
 
 	/* Listen on socket - means we're ready to accept connections -
-	 incoming connection inRequests will be queued */
+	 incoming connection requests will be queued */
 	listen(sockfd,5);
+    printf("Server: Listening on port %d\n", portno);
+	clilen = sizeof(cli_addr);
 
-	printf("Server: Waiting for connections...\n");
+	/* Accept a connection - block until a connection is ready to
+	 be accepted. Get back a new file descriptor to communicate on. */
+	newsockfd = accept(	sockfd, (struct sockaddr *) &cli_addr, &clilen);
 
-	server_loop(sockfd, webRoot);
+    /* Report Arriving Connection */
+    sin = (struct sockaddr_in*)&cli_addr;
+    unsigned char *ip = (unsigned char*)&sin->sin_addr.s_addr;
+    printf("Got Connection from %d.%d.%d.%d:%d\n", ip[0],ip[1],ip[2],ip[3], sin->sin_port);
+
+	if (newsockfd < 0) {
+		perror("ERROR on accept");
+		exit(1);
+	}
+
+	bzero(buffer,BUFFSIZE);
+
+	/* Read characters from the connection, then process */
+	n = read(newsockfd,buffer,BUFFSIZE-1);
+
+	if (n < 0) {
+		perror("ERROR reading from socket");
+		exit(1);
+	}
+
+	printf("Here is the Incoming Request: \n\n%s\n",buffer);
+
+    fileReq = parseRequest(buffer);
+
+    /* Handle inRequest */
+    reply = (char*)malloc(BUFFSIZE*sizeof(char));
+    assert(reply);
+    reply = respond(webRoot, fileReq);
+    replyLen = strlen(reply);
+
+    /* Check that everything sends without error */
+    if (sendall(newsockfd,reply, &replyLen) == -1) {
+        perror("Error sending file");
+    }
 
 	/* close socket */
-
+    printf("Closing connection to %d.%d.%d.%d:%d\n", ip[0],ip[1],ip[2],ip[3],
+                    sin->sin_port);
 	close(sockfd);
 
 	return 0;
 }
+
 
 /* ************************************************************************* */

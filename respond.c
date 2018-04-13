@@ -4,10 +4,11 @@
  * Name:    respond.c
  * Purpose: Contains all the code and logic for the HTTP handler.
  *
- * Comments:    Very Much Not Done
  */
 
 #define BUFFSIZE 4096
+#define SHORTBUFF 256
+#define STARTFILE 4
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,7 +22,11 @@
  * Based on code from
  * https://stackoverflow.com/questions/174531/easiest-way-to-get-files-contents-in-c
  */
-char *readFile(char *filename) {
+char *readFile(char* filename) {
+    /* Make sure we're not reading a folder file */
+    if(filename[strlen(filename)-1] == '/') {
+        return NULL;
+    }
     /* Open the file, make sure it's there and find the length*/
     FILE *f = fopen(filename, "rt");
     /* If the file isn't there, return a 404 */
@@ -97,12 +102,18 @@ char* concat(char *s1, char *s2)
 char* respond(char* webRoot, char* request) {
     char* content;
     char* response;
+    char* httpReq = concat(webRoot, request);
 
-    content = readFile(concat(webRoot, request));
+    /* Gets the file */
+    printf("Getting File %s\n", httpReq);
+    content = readFile(httpReq);
     if(content == NULL) {
+        printf("File \"%s\" does not exist or is not valid. Sending 404.\n\n",
+                httpReq);
         return fourohfour();
     }
 
+    /* Adds HTTP Headers */
     response = content;
 
     return response;
@@ -115,9 +126,20 @@ char* respond(char* webRoot, char* request) {
  */
 char* parseRequest(char* httpReq) {
     char* fileReq;
+    int readChar = STARTFILE;
+    int writeChar = 0;
 
-    fileReq = (char*)malloc(BUFFSIZE*sizeof(char));
-    fileReq = "/index.html";
+    /* Open a request buffer and zero it */
+    fileReq = (char*)malloc(SHORTBUFF*sizeof(char));
+    bzero(&fileReq, strlen(fileReq));
+
+    while(httpReq[readChar] != ' ') {
+        fileReq[writeChar] = httpReq[readChar];
+        writeChar++;
+        readChar++;
+    }
+    /* Add the String Terminator */
+    fileReq[writeChar] = '\0';
 
     return fileReq;
 }
