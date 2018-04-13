@@ -114,5 +114,10 @@ char* respond(char* webRoot, char* request) {
  * Parse's the HTTP request and finds the requested file string.
  */
 char* parseRequest(char* httpReq) {
-    return "/index.html";
+    char* fileReq;
+
+    fileReq = (char*)malloc(BUFFSIZE*sizeof(char));
+    fileReq = "/index.html";
+
+    return fileReq;
 }

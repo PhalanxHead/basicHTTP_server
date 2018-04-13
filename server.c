@@ -1,11 +1,11 @@
 /**
- * A simple HTTP Server, returns the requested files or a 404 Error
+ * A simple HTTP Server, returns the inRequested files or a 404 Error
  * Based on the code provided in Lab-5
  *
  * Author:	Luke Hedt - 832153
  * Date:	2018/04/05
  * Name:	server.c
- * Purpose:	Responds to HTTP Requests with valid responses.
+ * Purpose:	Responds to HTTP inRequests with valid responses.
  */
 
 #include <stdio.h>
@@ -15,6 +15,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <assert.h>
 
 #define BUFFSIZE 4096
 #define DEF_WEB "./test"
@@ -60,11 +61,11 @@ void server_loop(int sockfd, char* webRoot) {
 	struct sockaddr_storage their_addr;
     struct sockaddr_in *sin;
 	socklen_t sin_size;
-	int requestLen;
+	int inRequestLen;
 	int newsockfd;
 	int replyLen;
 	char* reply;
-	char* request;
+	char* inRequest;
     char* fileReq;
 
 	/* Accept connections ad infinitum */
@@ -81,17 +82,24 @@ void server_loop(int sockfd, char* webRoot) {
         unsigned char *ip = (unsigned char*)&sin->sin_addr.s_addr;
 		printf("Got Connection from %d.%d.%d.%d:%d\n", ip[0],ip[1],ip[2],ip[3], sin->sin_port);
 
-		/* Start a child process to handle the request */
+		/* Start a child process to handle the inRequestuest */
 		if (!fork()) {
-			/* The child isn't listening for new conenctions so we close
-			the listener socket ubder the child */
+			/* The child isn't listening for new connections so we close
+			the listener socket under the child */
 			close(sockfd);
 
-            /* Read Request */
-			requestLen = recv(newsockfd, &request, BUFFSIZE, 0);
-			fileReq = parseRequest(request);
+            inRequest = (char*)malloc(BUFFSIZE*sizeof(char));
+            assert(inRequest);
 
-			/* Handle Request */
+            /* Read inRequest */
+			inRequestLen = recv(newsockfd, &inRequest, BUFFSIZE - 1, 0);
+			fileReq = parseRequest(inRequest);
+
+            if(inRequestLen == 0) {
+                perror("ERROR reading from socket");
+            }
+
+			/* Handle inRequest */
 			reply = respond(webRoot, fileReq);
 			replyLen = strlen(reply);
 
@@ -99,12 +107,13 @@ void server_loop(int sockfd, char* webRoot) {
 			if (sendall(newsockfd,reply, &replyLen) == -1) {
 				perror("Error sending file");
 			}
-			/* Close the socket and kill the child */
-			close(newsockfd);
-			exit(EXIT_SUCCESS);
+
+    		close(newsockfd);
 		}
 		/* Close the child socket under the parent */
         printf("Closing connection from %d.%d.%d.%d:%d\n", ip[0],ip[1],ip[2],ip[3], sin->sin_port);
+        free(inRequest);
+        inRequest = NULL;
 		close(newsockfd);
 	}
 
@@ -114,12 +123,9 @@ void server_loop(int sockfd, char* webRoot) {
 /* ************************************************************************* */
 
 int main(int argc, char **argv) {
-	int sockfd, newsockfd, portno;// clilen;
-	char buffer[BUFFSIZE];
+	int sockfd, portno;// clilen;
 	char* webRoot;
-	struct sockaddr_in serv_addr, cli_addr;
-	socklen_t clilen;
-	int n, offset;
+	struct sockaddr_in serv_addr;
 
 	if (argc < 2) {
 		fprintf(stderr,"ERROR, no port provided\n");
@@ -162,7 +168,7 @@ int main(int argc, char **argv) {
 	}
 
 	/* Listen on socket - means we're ready to accept connections -
-	 incoming connection requests will be queued */
+	 incoming connection inRequests will be queued */
 	listen(sockfd,5);
 
 	printf("Server: Waiting for connections...\n");
