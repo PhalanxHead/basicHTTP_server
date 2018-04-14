@@ -72,27 +72,29 @@ char *readFile(char* filename) {
 char* fourohfour() {
     char* response;
     response = "\n"
-    "<!DOCTYPE html>\n"
-    "<html><head>\n"
-    "<title>404: File Not Found</title>\n"
+    "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n"
+    "<html>\n<head>\n"
+    "\t<title>404: File Not Found</title>\n"
     "<style>\n"
     ".center {\n"
-        "max-width: 600px;\n"
-        "margin: auto;\n"
+        "\tmax-width: 600px;\n"
+        "\tmargin: auto;\n"
     "}\n"
-    "</style></head>\n"
+    "</style>\n</head>\n"
     "<body>\n"
-        "<div class=\"center\">\n"
-        "<h1>404: File Not Found</h1>\n"
-        "<p>We couldn't find the file you requested. Perhaps there's a typo in your URL?</p>\n"
-        "</div>\n"
-    "</body></html>\n";
+        "\t<div class=\"center\">\n"
+        "\t<h1>404: File Not Found</h1>\n"
+        "\t<p>We couldn't find the file you requested. Perhaps there's a typo in your URL?</p>\n"
+        "\t</div>\n"
+    "</body>\n</html>\n";
 
     char* header = "HTTP/1.0 404 Not Found\n";
-    char* lenhdr = sprintf("Content-Length: %d\n", strlen(response));
+    char* lenhdr = (char*)malloc(SHORTBUFF*sizeof(char));
+    sprintf(lenhdr, "Content-Length: %d\n", (int)strlen(response));
     char* conhdr = "Connection: close\n";
     char* typehdr = "Content-Type: text/html\n";
 
+    /* Makde the Time Header */
     char curtime[SHORTBUFF];
     time_t now = time(0);
     struct tm tm = *gmtime(&now);
@@ -101,7 +103,12 @@ char* fourohfour() {
     char* timehdr = concat("Date: ", curtime);
     timehdr = concat(timehdr, "\n");
 
-    printf("%s\n\n", timehdr);
+    /* Join all of the individual headers */
+    response = concat(typehdr, response);
+    response = concat(conhdr, response);
+    response = concat(lenhdr, response);
+    response = concat(timehdr, response);
+    response = concat(header, response);
 
     return response;
 }

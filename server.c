@@ -92,6 +92,10 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, 
+                sizeof(int)) < 0) {
+            perror("setsockopt(SO_REUSEADDR) failed");
+    }
 
 	bzero((char *) &serv_addr, sizeof(serv_addr));
 
@@ -124,7 +128,8 @@ int main(int argc, char **argv)
     /* Report Arriving Connection */
     sin = (struct sockaddr_in*)&cli_addr;
     unsigned char *ip = (unsigned char*)&sin->sin_addr.s_addr;
-    printf("Got Connection from %d.%d.%d.%d:%d\n", ip[0],ip[1],ip[2],ip[3], sin->sin_port);
+    printf("Got Connection from %d.%d.%d.%d:%d\n", ip[0],ip[1],ip[2],ip[3],
+            sin->sin_port);
 
 	if (newsockfd < 0) {
 		perror("ERROR on accept");
@@ -151,6 +156,8 @@ int main(int argc, char **argv)
     reply = respond(webRoot, fileReq);
     replyLen = strlen(reply);
 
+    printf("Sending the message:\n%s\n\n", reply);
+
     /* Check that everything sends without error */
     if (sendall(newsockfd,reply, &replyLen) == -1) {
         perror("Error sending file");
@@ -160,6 +167,7 @@ int main(int argc, char **argv)
     printf("Closing connection to %d.%d.%d.%d:%d\n", ip[0],ip[1],ip[2],ip[3],
                     sin->sin_port);
 	close(sockfd);
+    close(newsockfd);
 
 	return 0;
 }
