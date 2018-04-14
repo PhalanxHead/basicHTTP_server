@@ -118,7 +118,6 @@ char* fourohfour() {
     char* conhdr = "Connection: Closed\n";
     char* typehdr = "Content-Type: text/html\n";
     char* timehdr = concat("Date: ", getCurrTime());
-    timehdr = concat(timehdr, "\n");
 
     /* Join all of the individual headers */
     response = concat("\n", response);
