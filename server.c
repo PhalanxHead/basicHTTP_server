@@ -21,7 +21,6 @@
 
 #define BUFFSIZE 4096
 #define SHORTBUFF 256
-#define OOFFSET 1
 #define DEF_WEB "./TestScript/test"
 
 /* ************************************************************************* */
@@ -58,20 +57,17 @@ int sendall(int sockfd, char *buf, int *len) {
 /*
  * Main Loop
  * Based on code from Lab 4 in COMP30023
- *
  */
 int main(int argc, char **argv)
 {
-	int sockfd, newsockfd, portno;// clilen;
+	int sockfd, newsockfd, portno, reqLen, replyLen;
 	char buffer[BUFFSIZE];
-	struct sockaddr_in serv_addr, cli_addr;
-	socklen_t clilen;
-	int reqLen;
     char* reply;
     char* fileReq;
     char* webRoot = (char*)malloc(BUFFSIZE*sizeof(char));
-    int replyLen;
     struct sockaddr_in *sin;
+	struct sockaddr_in serv_addr, cli_addr;
+	socklen_t clilen;
 
     if (argc < 2) {
 		fprintf(stderr,"ERROR, no port provided\n");
@@ -142,7 +138,7 @@ int main(int argc, char **argv)
 	bzero(buffer, BUFFSIZE);
 
 	/* Read characters from the connection, then process */
-	reqLen = read(newsockfd, buffer, BUFFSIZE - OOFFSET);
+	reqLen = read(newsockfd, buffer, BUFFSIZE - 1);
 
 	if (reqLen < 0) {
 		perror("ERROR reading from socket");

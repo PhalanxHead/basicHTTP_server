@@ -4,13 +4,11 @@
  * DateBegan:       2018/04/05
  * Name:            respond.c
  * Purpose: Contains all the code and logic for the HTTP handler.
- *
  */
 
 #define BUFFSIZE 4096
 #define SHORTBUFF 256
 #define STARTFILE 4
-#define OOFFSET 1
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,7 +26,7 @@
 char* concat(char *s1, char *s2)
 {
     /* +1 for the null-terminator */
-    char *result = malloc(strlen(s1)+strlen(s2)+OOFFSET);
+    char *result = malloc(strlen(s1)+strlen(s2)+1);
     assert(result);
     strcpy(result, s1);
     strcat(result, s2);
@@ -42,13 +40,13 @@ char* concat(char *s1, char *s2)
  * Based on code from
  * https://stackoverflow.com/questions/174531/easiest-way-to-get-files-contents-in-c
  */
-char *readFile(char* filename) {
+char* readFile(char* filename) {
     /* Make sure we're not reading a folder file */
     if(filename[strlen(filename)-1] == '/') {
         return NULL;
     }
     /* Open the file, make sure it's there and find the length*/
-    FILE *f = fopen(filename, "rt");
+    FILE* f = fopen(filename, "rt");
     /* If the file isn't there, return a 404 */
     if(f == NULL) {
         return NULL;
@@ -57,7 +55,7 @@ char *readFile(char* filename) {
     long length = ftell(f);
     fseek(f, 0, SEEK_SET);
     /* Make the buffer big enough to fit the entire file */
-    char *buffer = (char *) malloc(length + OOFFSET);
+    char* buffer = (char*)malloc(length + 1);
     /* Add an end-of-string char, then read the file */
     buffer[length] = '\0';
     fread(buffer, 1, length, f);
@@ -79,7 +77,9 @@ char* getCurrTime() {
     time_t now = time(0);
     struct tm tm = *gmtime(&now);
 
-    strftime(curtime, sizeof(curtime), "%a, %d %b %Y %H:%M:%S %Z", &tm);
+    if(strftime(curtime, SHORTBUFF, "%a, %d %b %Y %H:%M:%S %Z\n", &tm)) {
+        perror("Time didn't write successfully");
+    }
 
     return curtime;
 }
@@ -114,7 +114,6 @@ char* fourohfour() {
     /* Generate Headers */
     char* header = "HTTP/1.0 404 Not Found\n";
     char* lenhdr = (char*)malloc(SHORTBUFF*sizeof(char));
-    /* Remove 1 for string terminator (Because Webkit is evil) */
     sprintf(lenhdr, "Content-Length: %d\n", (int)strlen(response));
     char* conhdr = "Connection: Closed\n";
     char* typehdr = "Content-Type: text/html\n";
@@ -158,7 +157,7 @@ char* getMimeType(char* request) {
         return "image/jpeg\n";
 
     } else if(strcmp(ext, ".js") ==  0) {
-        return "application/javascript";
+        return "application/javascript\n";
     }
 
     return NULL;
@@ -186,13 +185,13 @@ char* respond(char* webRoot, char* request) {
     /* Generate Headers */
     char* header = "HTTP/1.0 200 OK\n";
     char* lenhdr = (char*)malloc(SHORTBUFF*sizeof(char));
-    /* Remove 1 for string terminator (Because Webkit is evil) */
     sprintf(lenhdr, "Content-Length: %d\n", (int)strlen(content));
+
     char* conhdr = "Connection: Closed\n";
     char* typehdr = (char*)malloc(SHORTBUFF*sizeof(char));
     sprintf(typehdr, "Content-Type: %s\n", getMimeType(request));
+
     char* timehdr = concat("Date: ", getCurrTime());
-    timehdr = concat(timehdr, "\n");
 
     /* Join all of the individual headers */
     response = concat("\n", content);
