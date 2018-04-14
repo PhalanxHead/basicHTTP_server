@@ -136,10 +136,10 @@ char* fourohfour() {
 
 
 /*
+ * Extremely primitive MIME Handler.
  * Returns the MIME type of the requested file.
  */
 char* getMimeType(char* request) {
-    char* mtype = (char*)malloc(SHORTBUFF*sizeof(char));
 
     /* Get the last '.' in the filename */
     char* ext = strrchr(request, '.');
@@ -148,8 +148,20 @@ char* getMimeType(char* request) {
     }
 
     /* Work out it's type and return the MIME type */
+    if(strcmp(ext, ".html") == 0) {
+        return "text/html\n";
 
-    return ext + 1;
+    } else if(strcmp(ext, ".css") == 0) {
+        return "text/css\n";
+
+    } else if((strcmp(ext, ".jpg") == 0) || (strcmp(ext, ".jpeg") == 0)) {
+        return "image/jpeg\n";
+
+    } else if(strcmp(ext, ".js") ==  0) {
+        return "application/javascript";
+    }
+
+    return NULL;
 }
 
 /* ************************************************************************* */
@@ -184,7 +196,7 @@ char* respond(char* webRoot, char* request) {
 
     /* Join all of the individual headers */
     response = concat("\n", content);
-    //response = concat(typehdr, content);
+    response = concat(typehdr, content);
     response = concat(conhdr, response);
     response = concat(lenhdr, response);
     response = concat(timehdr, response);
