@@ -14,6 +14,24 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <time.h>
+
+/* ************************************************************************* */
+
+/*
+ * Concats 2 strings
+ * Based on code from
+ * https://stackoverflow.com/questions/8465006/how-do-i-concatenate-two-strings-in-c
+ */
+char* concat(char *s1, char *s2)
+{
+    /* +1 for the null-terminator */
+    char *result = malloc(strlen(s1)+strlen(s2)+1);
+    assert(result);
+    strcpy(result, s1);
+    strcat(result, s2);
+    return result;
+}
 
 /* ************************************************************************* */
 
@@ -52,12 +70,8 @@ char *readFile(char* filename) {
  * Generates a 404 message and returns it.
  */
 char* fourohfour() {
-    char* response = (char*)malloc(sizeof(char[BUFFSIZE]));
-    response = "HTTP/1.0 404 Not Found\n"
-    "Content-Length: 330\n"
-    "Connection: close\n"
-    "Content-Type: text/html\n"
-    "\n"
+    char* response;
+    response = "\n"
     "<!DOCTYPE html>\n"
     "<html><head>\n"
     "<title>404: File Not Found</title>\n"
@@ -74,24 +88,22 @@ char* fourohfour() {
         "</div>\n"
     "</body></html>\n";
 
+    char* header = "HTTP/1.0 404 Not Found\n";
+    char* lenhdr = sprintf("Content-Length: %d\n", strlen(response));
+    char* conhdr = "Connection: close\n";
+    char* typehdr = "Content-Type: text/html\n";
+
+    char curtime[SHORTBUFF];
+    time_t now = time(0);
+    struct tm tm = *gmtime(&now);
+    strftime(curtime, sizeof(curtime), "%a, %d %b %Y %H:%M:%S %Z", &tm);
+
+    char* timehdr = concat("Date: ", curtime);
+    timehdr = concat(timehdr, "\n");
+
+    printf("%s\n\n", timehdr);
+
     return response;
-}
-
-/* ************************************************************************* */
-
-/*
- * Concats 2 strings
- * Based on code from
- * https://stackoverflow.com/questions/8465006/how-do-i-concatenate-two-strings-in-c
- */
-char* concat(char *s1, char *s2)
-{
-    /* +1 for the null-terminator */
-    char *result = malloc(strlen(s1)+strlen(s2)+1);
-    assert(result);
-    strcpy(result, s1);
-    strcat(result, s2);
-    return result;
 }
 
 /* ************************************************************************* */
