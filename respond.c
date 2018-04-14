@@ -42,7 +42,10 @@ char* concat(char *s1, char *s2)
  * Based on code from
  * https://stackoverflow.com/questions/174531/easiest-way-to-get-files-contents-in-c
  */
-char* readFile(char* filename) {
+char* readFile(char* filename, long int* fileLen) {
+
+    ssize_t numRead;
+
     /* Make sure we're not reading a folder file */
     if(filename[strlen(filename)-1] == '/') {
         return NULL;
@@ -58,12 +61,14 @@ char* readFile(char* filename) {
     fseek(f, 0, SEEK_SET);
 
     /* Make the buffer big enough to fit the entire file */
-    char* buffer = (char*)malloc(length + 1);
+    char* buffer = (char*)malloc(sizeof(char)*(length + 1));
     assert(buffer);
 
     /* Add an end-of-string char, then read the file */
     buffer[length] = '\0';
-    fread(buffer, 1, length, f);
+    numRead = fread(buffer, sizeof(char), length, f);
+
+    *fileLen = (long int)numRead;
 
     /* Close the file and gimme my data */
     fclose(f);
@@ -128,58 +133,59 @@ char* getMimeType(char* request) {
  * Generates the required HTTP Headers.
  */
 char* genHeaders(char* content, int contentLen, char* requestPath, int FoF) {
-  char *mainhdr, *lenhdr, *conhdr, *typehdr, *timehdr;
-  /* This way of defining response iterations is tiring but if I don't it leaks
+    char *mainhdr, *lenhdr, *conhdr, *typehdr, *timehdr;
+    /* This way of defining response iterations is tiring but if I don't it leaks
     memory big time */
-  char *response0, *response1, *response2, *response3;
-  char *response4, *response5;
-  char* curtime;
+    char *response0, *response1, *response2, *response3;
+    char *response4, *response5;
+    char *curtime, *mimeType;
 
-  /* Treat 404 Errors slightly differently due to them being Hardcoded */
-  if(FoF == FOF_TRUE) {
-    mainhdr = "HTTP/1.0 404 Not Found\n";
-    typehdr = "Content-Type: text/html\n";
+    /* Treat 404 Errors slightly differently due to them being Hardcoded */
+    if(FoF == FOF_TRUE) {
+        mainhdr = "HTTP/1.0 404 Not Found\n";
+        typehdr = "Content-Type: text/html\n";
 
-  } else {
-    mainhdr = "HTTP/1.0 200 OK\n";
-    typehdr = (char*)malloc(SHORTBUFF*sizeof(char));
-    assert(typehdr);
-    sprintf(typehdr, "Content-Type: %s\n", getMimeType(requestPath));
-  }
+    } else {
+        mainhdr = "HTTP/1.0 200 OK\n";
+        typehdr = (char*)malloc(SHORTBUFF*sizeof(char));
+        assert(typehdr);
+        mimeType = getMimeType(requestPath);
+        sprintf(typehdr, "Content-Type: %s\n", mimeType);
+    }
 
-  /* Standard Headers */
-  lenhdr = (char*)malloc(SHORTBUFF*sizeof(char));
-  assert(lenhdr);
-  sprintf(lenhdr, "Content-Length: %d\n", contentLen);
-  conhdr = "Connection: Closed\n";
-  curtime = getCurrTime();
-  timehdr = concat("Date: ", curtime);
-  free(curtime);
+    /* Standard Headers */
+    lenhdr = (char*)malloc(SHORTBUFF*sizeof(char));
+    assert(lenhdr);
+    sprintf(lenhdr, "Content-Length: %d\n", contentLen);
+    conhdr = "Connection: Closed\n";
+    curtime = getCurrTime();
+    timehdr = concat("Date: ", curtime);
+    free(curtime);
 
-  /* Join all of the individual headers and free the corresponding memory
+    /* Join all of the individual headers and free the corresponding memory
     blocks */
-  response0 = concat("\n", content);
-  response1 = concat(typehdr, response0);
-  free(response0);
+    response0 = concat("\n", content);  
+    response1 = concat(typehdr, response0);
+    free(response0);
 
-  if(FoF == FOF_FALSE) {
+    if(FoF == FOF_FALSE) {
     free(typehdr);
-  }
+    }
 
-  response2 = concat(conhdr, response1);
-  free(response1);
-  response3 = concat(lenhdr, response2);
-  free(response2);
-  free(lenhdr);
-  response4 = concat(timehdr, response3);
-  free(response3);
-  free(timehdr);
-  response5 = concat(mainhdr, response4);
-  free(response4);
+    response2 = concat(conhdr, response1);
+    free(response1);
+    response3 = concat(lenhdr, response2);
+    free(response2);
+    free(lenhdr);
+    response4 = concat(timehdr, response3);
+    free(response3);
+    free(timehdr);
+    response5 = concat(mainhdr, response4);
+    free(response4);
 
-  return response5;
+    return response5;
 
-}
+    }
 
 
 /* ************************************************************************* */
@@ -204,7 +210,8 @@ char* fourohfour() {
     "<body>\n"
         "<div class=\"center\">\n"
         "<h1>404: File Not Found</h1>\n"
-        "<p>We couldn't find the file you requested. Perhaps there's a typo in your URL?</p>\n"
+        "<p>We couldn't find the file you requested."
+        "Perhaps there's a typo in your URL?</p>\n"
         "</div>\n"
     "</body></html>\n";
 
@@ -224,10 +231,11 @@ char* respond(char* webRoot, char* request) {
     char* content;
     char* response;
     char* httpReq = concat(webRoot, request);
+    long int contentLen;
 
     /* Gets the file */
     printf("Getting File %s\n", httpReq);
-    content = readFile(httpReq);
+    content = readFile(httpReq, &contentLen);
     if(content == NULL) {
         printf("File \"%s\" does not exist or is not valid. Sending 404.\n\n",
                 httpReq);
@@ -235,7 +243,7 @@ char* respond(char* webRoot, char* request) {
         return fourohfour();
     }
 
-    response = genHeaders(content, (int)strlen(content), request, FOF_FALSE);
+    response = genHeaders(content, contentLen, request, FOF_FALSE);
 
     free(httpReq);
     free(content);
