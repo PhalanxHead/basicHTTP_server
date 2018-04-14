@@ -2,9 +2,10 @@
  * A simple HTTP Server, returns the inRequested files or a 404 Error
  * Based on the code provided in Lab-5
  *
- * Author:	Luke Hedt - 832153
- * Date:	2018/04/05
- * Name:	server.c
+ * Author:	         Luke Hedt - 832153
+ * Email/Login ID:   lhedt@student.unimelb.edu.au
+ * Date:	         2018/04/05
+ * Name:	         server.c
  * Purpose:	Responds to HTTP inRequests with valid responses.
  */
 
@@ -19,6 +20,8 @@
 #include "respond.h"
 
 #define BUFFSIZE 4096
+#define SHORTBUFF 256
+#define OOFFSET 1
 #define DEF_WEB "./TestScript/test"
 
 /* ************************************************************************* */
@@ -34,20 +37,20 @@ int sendall(int sockfd, char *buf, int *len) {
     int total = 0;
 	// how many we have left to send
     int bytesleft = *len;
-    int n;
+    int sentLen;
 
     while(total < *len) {
-        n = send(sockfd, buf+total, bytesleft, 0);
-        if (n == -1) { break; }
-        total += n;
-        bytesleft -= n;
+        sentLen = send(sockfd, buf+total, bytesleft, 0);
+        if (sentLen == -1) { break; }
+        total += sentLen;
+        bytesleft -= sentLen;
     }
 
 	// return number actually sent here
     *len = total;
 
 	// return -1 on failure, 0 on success
-    return n==-1?-1:0;
+    return sentLen==-1?-1:0;
 }
 
 /* ************************************************************************* */
@@ -63,7 +66,7 @@ int main(int argc, char **argv)
 	char buffer[BUFFSIZE];
 	struct sockaddr_in serv_addr, cli_addr;
 	socklen_t clilen;
-	int n;
+	int reqLen;
     char* reply;
     char* fileReq;
     char* webRoot = (char*)malloc(BUFFSIZE*sizeof(char));
@@ -83,16 +86,15 @@ int main(int argc, char **argv)
 	}
 
 	 /* Create TCP socket */
-
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
-	if (sockfd < 0)
-	{
+	if (sockfd < 0) {
 		perror("ERROR opening socket");
 		exit(1);
 	}
 
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, 
+    /* Sets socket to allow port reuse when server stops quickly */
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1},
                 sizeof(int)) < 0) {
             perror("setsockopt(SO_REUSEADDR) failed");
     }
@@ -112,7 +114,7 @@ int main(int argc, char **argv)
 	 /* Bind address to the socket */
 	if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
 		perror("ERROR on binding");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	/* Listen on socket - means we're ready to accept connections -
@@ -125,28 +127,29 @@ int main(int argc, char **argv)
 	 be accepted. Get back a new file descriptor to communicate on. */
 	newsockfd = accept(	sockfd, (struct sockaddr *) &cli_addr, &clilen);
 
+    if (newsockfd < 0) {
+		perror("ERROR on accept");
+		exit(EXIT_FAILURE);
+	}
+
     /* Report Arriving Connection */
     sin = (struct sockaddr_in*)&cli_addr;
     unsigned char *ip = (unsigned char*)&sin->sin_addr.s_addr;
     printf("Got Connection from %d.%d.%d.%d:%d\n", ip[0],ip[1],ip[2],ip[3],
             sin->sin_port);
 
-	if (newsockfd < 0) {
-		perror("ERROR on accept");
-		exit(1);
-	}
-
-	bzero(buffer,BUFFSIZE);
+    /* Zero buffer to read into */
+	bzero(buffer, BUFFSIZE);
 
 	/* Read characters from the connection, then process */
-	n = read(newsockfd,buffer,BUFFSIZE-1);
+	reqLen = read(newsockfd, buffer, BUFFSIZE - OOFFSET);
 
-	if (n < 0) {
+	if (reqLen < 0) {
 		perror("ERROR reading from socket");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
-	printf("Here is the Incoming Request: \n\n%s\n",buffer);
+	printf("Here is the Incoming Request: \n\n%s\n", buffer);
 
     fileReq = parseRequest(buffer);
 
