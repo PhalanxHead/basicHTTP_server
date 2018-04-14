@@ -9,6 +9,8 @@
 #define BUFFSIZE 4096
 #define SHORTBUFF 256
 #define STARTFILE 4
+#define FOF_TRUE 1
+#define FOF_FALSE 0
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -54,11 +56,15 @@ char* readFile(char* filename) {
     fseek(f, 0, SEEK_END);
     long length = ftell(f);
     fseek(f, 0, SEEK_SET);
+
     /* Make the buffer big enough to fit the entire file */
     char* buffer = (char*)malloc(length + 1);
+    assert(buffer);
+
     /* Add an end-of-string char, then read the file */
     buffer[length] = '\0';
     fread(buffer, 1, length, f);
+
     /* Close the file and gimme my data */
     fclose(f);
     return buffer;
@@ -74,64 +80,18 @@ char* readFile(char* filename) {
  */
 char* getCurrTime() {
     char* curtime = (char*)malloc(SHORTBUFF*sizeof(char));
+    assert(curtime);
     time_t now = time(0);
     struct tm tm = *gmtime(&now);
 
-    if(strftime(curtime, SHORTBUFF, "%a, %d %b %Y %H:%M:%S %Z\n", &tm)) {
-        perror("Time didn't write successfully");
-    }
+    strftime(curtime, SHORTBUFF, "%a, %d %b %Y %H:%M:%S %Z\n", &tm);
+
 
     return curtime;
 }
 
-/* ************************************************************************* */
-
-/*
- * Generates a 404 message and returns it.
- * Page is hardcoded for sake of simplicity & sake of remote automated testing
- *  No other good reason not to have a nicer 404 page which is loaded.
- */
-char* fourohfour() {
-    char* response;
-    /* 404 Page Content */
-    response = "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n"
-    "<html><head>\n"
-    "<title>404: File Not Found</title>\n"
-    "<style>\n"
-    ".center {\n"
-        "max-width: 600px;\n"
-        "margin: auto;\n"
-    "}\n"
-    "</style></head>\n"
-    "<body>\n"
-        "<div class=\"center\">\n"
-        "<h1>404: File Not Found</h1>\n"
-        "<p>We couldn't find the file you requested. Perhaps there's a typo in your URL?</p>\n"
-        "</div>\n"
-    "</body></html>\n";
-
-
-    /* Generate Headers */
-    char* header = "HTTP/1.0 404 Not Found\n";
-    char* lenhdr = (char*)malloc(SHORTBUFF*sizeof(char));
-    sprintf(lenhdr, "Content-Length: %d\n", (int)strlen(response));
-    char* conhdr = "Connection: Closed\n";
-    char* typehdr = "Content-Type: text/html\n";
-    char* timehdr = concat("Date: ", getCurrTime());
-
-    /* Join all of the individual headers */
-    response = concat("\n", response);
-    response = concat(typehdr, response);
-    response = concat(conhdr, response);
-    response = concat(lenhdr, response);
-    response = concat(timehdr, response);
-    response = concat(header, response);
-
-    return response;
-}
 
 /* ************************************************************************* */
-
 
 /*
  * Extremely primitive MIME Handler.
@@ -165,6 +125,99 @@ char* getMimeType(char* request) {
 /* ************************************************************************* */
 
 /*
+ * Generates the required HTTP Headers.
+ */
+char* genHeaders(char* content, int contentLen, char* requestPath, int FoF) {
+  char *mainhdr, *lenhdr, *conhdr, *typehdr, *timehdr;
+  /* This way of defining response iterations is tiring but if I don't it leaks
+    memory big time */
+  char *response0, *response1, *response2, *response3;
+  char *response4, *response5;
+  char* curtime;
+
+  /* Treat 404 Errors slightly differently due to them being Hardcoded */
+  if(FoF == FOF_TRUE) {
+    mainhdr = "HTTP/1.0 404 Not Found\n";
+    typehdr = "Content-Type: text/html\n";
+
+  } else {
+    mainhdr = "HTTP/1.0 200 OK\n";
+    typehdr = (char*)malloc(SHORTBUFF*sizeof(char));
+    assert(typehdr);
+    sprintf(typehdr, "Content-Type: %s\n", getMimeType(requestPath));
+  }
+
+  /* Standard Headers */
+  lenhdr = (char*)malloc(SHORTBUFF*sizeof(char));
+  assert(lenhdr);
+  sprintf(lenhdr, "Content-Length: %d\n", contentLen);
+  conhdr = "Connection: Closed\n";
+  curtime = getCurrTime();
+  timehdr = concat("Date: ", curtime);
+  free(curtime);
+
+  /* Join all of the individual headers and free the corresponding memory
+    blocks */
+  response0 = concat("\n", content);
+  response1 = concat(typehdr, response0);
+  free(response0);
+
+  if(FoF == FOF_FALSE) {
+    free(typehdr);
+  }
+
+  response2 = concat(conhdr, response1);
+  free(response1);
+  response3 = concat(lenhdr, response2);
+  free(response2);
+  free(lenhdr);
+  response4 = concat(timehdr, response3);
+  free(response3);
+  free(timehdr);
+  response5 = concat(mainhdr, response4);
+  free(response4);
+
+  return response5;
+
+}
+
+
+/* ************************************************************************* */
+
+/*
+ * Generates a 404 message and returns it.
+ * Page is hardcoded for sake of simplicity & sake of remote automated testing
+ *  No other good reason not to have a nicer 404 page which is loaded.
+ */
+char* fourohfour() {
+    char* response;
+    /* 404 Page Content */
+    response = "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n"
+    "<html><head>\n"
+    "<title>404: File Not Found</title>\n"
+    "<style>\n"
+    ".center {\n"
+        "max-width: 600px;\n"
+        "margin: auto;\n"
+    "}\n"
+    "</style></head>\n"
+    "<body>\n"
+        "<div class=\"center\">\n"
+        "<h1>404: File Not Found</h1>\n"
+        "<p>We couldn't find the file you requested. Perhaps there's a typo in your URL?</p>\n"
+        "</div>\n"
+    "</body></html>\n";
+
+
+    response = genHeaders(response, (int)strlen(response), NULL, FOF_TRUE);
+
+    return response;
+}
+
+
+/* ************************************************************************* */
+
+/*
  * Forms the response to the HTTP Request
  */
 char* respond(char* webRoot, char* request) {
@@ -178,27 +231,14 @@ char* respond(char* webRoot, char* request) {
     if(content == NULL) {
         printf("File \"%s\" does not exist or is not valid. Sending 404.\n\n",
                 httpReq);
+        free(httpReq);
         return fourohfour();
     }
 
-    /* Generate Headers */
-    char* header = "HTTP/1.0 200 OK\n";
-    char* lenhdr = (char*)malloc(SHORTBUFF*sizeof(char));
-    sprintf(lenhdr, "Content-Length: %d\n", (int)strlen(content));
+    response = genHeaders(content, (int)strlen(content), request, FOF_FALSE);
 
-    char* conhdr = "Connection: Closed\n";
-    char* typehdr = (char*)malloc(SHORTBUFF*sizeof(char));
-    sprintf(typehdr, "Content-Type: %s\n", getMimeType(request));
-
-    char* timehdr = concat("Date: ", getCurrTime());
-
-    /* Join all of the individual headers */
-    response = concat("\n", content);
-    response = concat(typehdr, content);
-    response = concat(conhdr, response);
-    response = concat(lenhdr, response);
-    response = concat(timehdr, response);
-    response = concat(header, response);
+    free(httpReq);
+    free(content);
 
     return response;
 }
@@ -213,9 +253,9 @@ char* parseRequest(char* httpReq) {
     int readChar = STARTFILE;
     int writeChar = 0;
 
-    /* Open a request buffer and zero it */
+    /* Open a request buffer */
     fileReq = (char*)malloc(SHORTBUFF*sizeof(char));
-    bzero(&fileReq, strlen(fileReq));
+    assert(fileReq);
 
     /* Get the requested file & path */
     while(httpReq[readChar] != ' ') {

@@ -26,4 +26,5 @@ char* respond(char* webRoot, char* request);
  */
 char* parseRequest(char* httpReq);
 
+
 #endif
