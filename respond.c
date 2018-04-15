@@ -45,7 +45,8 @@ char* readFile(char* filename, long int* fileLen, char* webRoot) {
 	ssize_t numRead;
 
 	/* Make sure we're not reading a folder file */
-	if((filename[strlen(filename)-1] == '/') || (strcmp(filename, webRoot) == 0)) {
+	if((filename[strlen(filename)-1] == '/') ||
+			(strcmp(filename, webRoot) == 0)) {
 		return NULL;
 	}
 	/* Open the file, make sure it's there and find the length*/
@@ -70,7 +71,6 @@ char* readFile(char* filename, long int* fileLen, char* webRoot) {
 
 	/* Close the file and gimme my data */
 	fclose(f);
-
 	return buffer;
 }
 
@@ -131,7 +131,7 @@ char* getMimeType(char* request) {
 /*
  * Generates the required HTTP Headers.
  */
-char* genHeaders(char* content, long int *contentLen, char* requestPath, int FoF) {
+char* genHeaders(char* content, int contentLen, char* requestPath, int FoF) {
 	char *mainhdr, *lenhdr, *conhdr, *typehdr, *timehdr;
 	/* This way of defining response iterations is tiring but if I don't it leaks
 	memory big time */
@@ -155,7 +155,7 @@ char* genHeaders(char* content, long int *contentLen, char* requestPath, int FoF
 	/* Standard Headers */
 	lenhdr = (char*)malloc(SHORTBUFF);
 	assert(lenhdr);
-	sprintf(lenhdr, "Content-Length: %ld\n", *contentLen);
+	sprintf(lenhdr, "Content-Length: %d\n", contentLen);
 	conhdr = "Connection: Closed\n";
 	curtime = getCurrTime();
 	timehdr = concat("Date: ", curtime);
@@ -163,17 +163,21 @@ char* genHeaders(char* content, long int *contentLen, char* requestPath, int FoF
 
 	/* Join all of the individual headers and free the corresponding memory
 	blocks */
-	response1 = concat(mainhdr, timehdr);
-	free(timehdr);
-	response2 = concat(response1, lenhdr);
+	response1 = concat(typehdr, content);
+
+	if(FoF == FOF_FALSE) {
+		free(typehdr);
+	}
+
+	response2 = concat(conhdr, response1);
 	free(response1);
-	free(lenhdr);
-	response3 = concat(response2, conhdr);
+	response3 = concat(lenhdr, response2);
 	free(response2);
-	response4 = concat(response3, typehdr);
+	free(lenhdr);
+	response4 = concat(timehdr, response3);
 	free(response3);
-	free(typehdr);
-	response5 = concat(response4, "\n");
+	free(timehdr);
+	response5 = concat(mainhdr, response4);
 	free(response4);
 
 	return response5;
@@ -209,7 +213,7 @@ char* fourohfour() {
 	"</body></html>\n";
 
 
-	response = genHeaders(response, (long int*)strlen(response), NULL, FOF_TRUE);
+	response = genHeaders(response, (int)strlen(response), NULL, FOF_TRUE);
 
 	return response;
 }
@@ -220,15 +224,15 @@ char* fourohfour() {
 /*
  * Forms the response to the HTTP Request
  */
-char* respond(char* webRoot, char* request, char** r_content, long int *contentLen) {
+char* respond(char* webRoot, char* request) {
 	char* content;
 	char* response;
 	char* httpReq = concat(webRoot, request);
+	long int contentLen;
 
 	/* Gets the file */
 	printf("Getting File %s\n", httpReq);
-	content = readFile(httpReq, contentLen, webRoot);
-
+	content = readFile(httpReq, &contentLen, webRoot);
 	if(content == NULL) {
 		printf("File \"%s\" does not exist or is not valid. Sending 404.\n\n",
 				httpReq);
@@ -237,7 +241,6 @@ char* respond(char* webRoot, char* request, char** r_content, long int *contentL
 	}
 
 	response = genHeaders(content, contentLen, request, FOF_FALSE);
-	r_content = &content;
 
 	free(httpReq);
 	free(content);
@@ -279,7 +282,7 @@ char* parseRequest(char* httpReq) {
  * http://beej.us/guide/bgnet/html/single/bgnet.html
  */
 
-int sendall(int sockfd, char *buf, long int *len) {
+int sendall(int sockfd, char *buf, int *len) {
 	// how many bytes we've sent
 	int total = 0;
 	// how many we have left to send
@@ -307,13 +310,10 @@ int sendall(int sockfd, char *buf, long int *len) {
  * REQUIRES: Threadargs Structure
  */
 void* conn_handler(void* thread_args) {
-	int reqLen;
-	long int r_hders_len;
+	int reqLen, replyLen;
 	char buffer[BUFFSIZE];
-	char* r_hders;
+	char* reply;
 	char* fileReq;
-	char* content;
-	long int contentLen;
 	struct sockaddr_in *sin;
 
 
@@ -344,26 +344,17 @@ void* conn_handler(void* thread_args) {
 	fileReq = parseRequest(buffer);
 
 	/* Handle inRequest */
-	r_hders = respond(webRoot, fileReq, &content, &contentLen);
-	r_hders_len = strlen(r_hders);
+	reply = respond(webRoot, fileReq);
+	replyLen = strlen(reply);
 
-	/* Print response */
-	printf("Sending the message:\n%s", r_hders);
-	int i = 0;
-	while(i<contentLen) {
-		printf("%c", content[i++]);
-	}
-	printf("\n");
+	printf("Sending the message:\n%s\n\n", reply);
 
 	/* Check that everything sends without error */
-	if (sendall(clientsockfd, r_hders, &r_hders_len) == -1) {
-		perror("Error sending Headers");
-	}
-	if (sendall(clientsockfd, content, &contentLen) == -1) {
-		perror("Error sending content");
+	if (sendall(clientsockfd, reply, &replyLen) == -1) {
+		perror("Error sending file");
 	}
 
-	free(r_hders);
+	free(reply);
 	free(fileReq);
 
 	/* close socket */
@@ -373,7 +364,4 @@ void* conn_handler(void* thread_args) {
 	close(clientsockfd);
 
 	return 0;
-
 }
-
-/* ************************************************************************* */
