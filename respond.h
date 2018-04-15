@@ -9,22 +9,28 @@
 #ifndef RESPOND_H
 #define RESPOND_H
 
-/* Generates valid HTTP response
- * Inputs:
-    *   webRoot - The root directory of the server_loop
-    *   request - The bitstream from the recv call
- * Returns:
-    *   Valid HTTP Response (404 if file not found.)
- */
-char* respond(char* webRoot, char* request);
+#include <string.h>
+#include <assert.h>
+#include <time.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <pthread.h>
 
-/* Searches request for reuqested file
- * Inputs:
-    *   httpReq - The recieved request from recv
- * Returns:
-    *   FILE_TO_READ's path
- */
-char* parseRequest(char* httpReq);
+typedef struct s_thread_args {
+	int clientsockfd;
+	struct sockaddr_in *cli_addr;
+	char* webRoot;
+} ThreadArgs;
 
+/*
+ * Handles the HTTP connection, request and response formation
+ * Designed for use in a pthread.
+ *********************************************************************
+ * INPUT VARIABLES:
+ *** void* thread_args: pointer to the thread arguments structure.
+ */
+void* conn_handler(void* thread_args);
 
 #endif

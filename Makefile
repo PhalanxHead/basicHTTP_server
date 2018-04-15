@@ -1,13 +1,15 @@
 ##Adapted from http://www.cs.colby.edu/maxwell/courses/tutorials/maketutor/
 CC		=	gcc
 CFLAGS	=	-Wall
+SRCS	=	server.c respond.c
 OBJ 	= 	server.o respond.o
 EXE 	= 	server
+LDFLAGS	=	-lpthread
 
 
 ##Create executable linked file from object files.
 $(EXE): $(OBJ)
-	$(CC) $(CFLAGS) -o $(EXE) $(OBJ)
+	$(CC) $(CFLAGS) -o $@ $(OBJ) $(LDFLAGS)
 
 respond.o: respond.h
 
