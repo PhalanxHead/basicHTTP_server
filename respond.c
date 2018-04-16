@@ -195,7 +195,7 @@ char* genHeaders(char* content, int contentLen, char* requestPath, int FoF) {
 char* fourohfour() {
 	char* response;
 	/* 404 Page Content */
-	response = "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n"
+	response = "\n<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n"
 	"<html><head>\n"
 	"<title>404: File Not Found</title>\n"
 	"<style>\n"
