@@ -26,10 +26,30 @@
 char* concat(char *s1, char *s2)
 {
 	/* +1 for the null-terminator */
-	char *result = malloc(strlen(s1)+strlen(s2)+1);
+	char* result = malloc(strlen(s1)+strlen(s2)+1);
 	assert(result);
 	strcpy(result, s1);
 	strcat(result, s2);
+	return result;
+}
+
+/* ************************************************************************* */
+
+/*
+ * Concats a string and a memory segment
+ */
+char* mem_concat(char *s1, char *s2, int s2_len)
+{
+
+	int s1_len = strlen(s1);
+	/* +1 for the null-terminator */
+	char* result = malloc(s1_len + s2_len + 2);
+	assert(result);
+	strcpy(result, s1);
+	memcpy((result + s1_len), s2, s2_len);
+	/* Add a Newline */
+	memcpy((result + s1_len + s2_len), "\n\n", 2);
+
 	return result;
 }
 
@@ -131,10 +151,12 @@ char* getMimeType(char* request) {
 /*
  * Generates the required HTTP Headers.
  */
-char* genHeaders(char* content, int contentLen, char* requestPath, int FoF) {
+char* genHeaders(char* content, int contentLen, char* requestPath,
+						int* replyLen, int FoF) {
+
 	char *mainhdr, *lenhdr, *conhdr, *typehdr, *timehdr;
 	/* This way of defining response iterations is tiring but if I don't it leaks
-	memory big time */
+	memory big time. There's probably a neater way to do it. */
 	char *response1, *response2, *response3;
 	char *response4, *response5;
 	char *curtime, *mimeType;
@@ -175,13 +197,22 @@ char* genHeaders(char* content, int contentLen, char* requestPath, int FoF) {
 	if(FoF == FOF_FALSE) {
 		free(typehdr);
 	}
-	response5 = concat(response4, content);
+
+	/* Treat images differently (Warning: Primitive) */
+	if(strcmp(mimeType, "image/jpeg\n") == 0) {
+		response5 = mem_concat(response4, content, contentLen);
+		*replyLen = contentLen + strlen(response4);
+
+	} else {
+		response5 = concat(response4, content);
+		*replyLen = strlen(response5);
+	}
+
 	free(response4);
-	free(content);
 
 	return response5;
 
-	}
+}
 
 
 /* ************************************************************************* */
@@ -191,7 +222,7 @@ char* genHeaders(char* content, int contentLen, char* requestPath, int FoF) {
  * Page is hardcoded for sake of simplicity & sake of remote automated testing
  *  No other good reason not to have a nicer 404 page which is loaded.
  */
-char* fourohfour() {
+char* fourohfour(int* replyLen) {
 	char* response;
 	/* 404 Page Content */
 	response = "\n<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n"
@@ -212,7 +243,8 @@ char* fourohfour() {
 	"</body></html>\n";
 
 
-	response = genHeaders(response, (int)strlen(response), NULL, FOF_TRUE);
+	response = genHeaders(response, (int)strlen(response), NULL,
+				replyLen, FOF_TRUE);
 
 	return response;
 }
@@ -223,7 +255,7 @@ char* fourohfour() {
 /*
  * Forms the response to the HTTP Request
  */
-char* respond(char* webRoot, char* request) {
+char* respond(char* webRoot, char* request, int* replyLen) {
 	char* content;
 	char* response;
 	char* httpReq = concat(webRoot, request);
@@ -236,10 +268,10 @@ char* respond(char* webRoot, char* request) {
 		printf("File \"%s\" does not exist or is not valid. Sending 404.\n\n",
 				httpReq);
 		free(httpReq);
-		return fourohfour();
+		return fourohfour(replyLen);
 	}
 
-	response = genHeaders(content, contentLen, request, FOF_FALSE);
+	response = genHeaders(content, contentLen, request, replyLen, FOF_FALSE);
 
 	free(httpReq);
 	free(content);
@@ -343,8 +375,7 @@ void* conn_handler(void* thread_args) {
 	fileReq = parseRequest(httpReq);
 
 	/* Handle inRequest */
-	reply = respond(webRoot, fileReq);
-	replyLen = strlen(reply);
+	reply = respond(webRoot, fileReq, &replyLen);
 
 	printf("Sending the message:\n%s\n\n", reply);
 
