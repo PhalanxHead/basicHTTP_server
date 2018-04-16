@@ -44,9 +44,10 @@ char* readFile(char* filename, long int* fileLen, char* webRoot) {
 
 	ssize_t numRead;
 
-	/* Make sure we're not reading a folder file */
+	/* Make sure we're not reading a folder file or the root file
+			(Weird broswer error that caused a segfault) */
 	if((filename[strlen(filename)-1] == '/') ||
-			(strcmp(filename, webRoot) == 0)) {
+				(strcmp(filename, webRoot) == 0)) {
 		return NULL;
 	}
 	/* Open the file, make sure it's there and find the length*/
@@ -89,7 +90,6 @@ char* getCurrTime() {
 	struct tm tm = *gmtime(&now);
 
 	strftime(curtime, SHORTBUFF, "%a, %d %b %Y %H:%M:%S %Z\n", &tm);
-
 
 	return curtime;
 }
@@ -142,7 +142,7 @@ char* genHeaders(char* content, int contentLen, char* requestPath, int FoF) {
 	/* Treat 404 Errors slightly differently due to them being Hardcoded */
 	if(FoF == FOF_TRUE) {
 		mainhdr = "HTTP/1.0 404 Not Found\n";
-		typehdr = "Content-Type: text/html\n";
+		typehdr = "Content-Type: text/html\n\n";
 
 	} else {
 		mainhdr = "HTTP/1.0 200 OK\n";
@@ -163,22 +163,21 @@ char* genHeaders(char* content, int contentLen, char* requestPath, int FoF) {
 
 	/* Join all of the individual headers and free the corresponding memory
 	blocks */
-	response1 = concat(typehdr, content);
-
+	response1 = concat(mainhdr, timehdr);
+	free(timehdr);
+	response2 = concat(response1, lenhdr);
+	free(response1);
+	free(lenhdr);
+	response3 = concat(response2, conhdr);
+	free(response2);
+	response4 = concat(response3, typehdr);
+	free(response3);
 	if(FoF == FOF_FALSE) {
 		free(typehdr);
 	}
-
-	response2 = concat(conhdr, response1);
-	free(response1);
-	response3 = concat(lenhdr, response2);
-	free(response2);
-	free(lenhdr);
-	response4 = concat(timehdr, response3);
-	free(response3);
-	free(timehdr);
-	response5 = concat(mainhdr, response4);
+	response5 = concat(response4, content);
 	free(response4);
+	free(content);
 
 	return response5;
 
@@ -199,17 +198,17 @@ char* fourohfour() {
 	"<html><head>\n"
 	"<title>404: File Not Found</title>\n"
 	"<style>\n"
-	".center {\n"
-		"max-width: 600px;\n"
-		"margin: auto;\n"
-	"}\n"
+	"\t.center {\n"
+		"\t\tmax-width: 600px;\n"
+		"\t\tmargin: auto;\n"
+	"\t}\n"
 	"</style></head>\n"
 	"<body>\n"
-		"<div class=\"center\">\n"
-		"<h1>404: File Not Found</h1>\n"
-		"<p>We couldn't find the file you requested."
+		"\t<div class=\"center\">\n"
+		"\t\t<h1>404: File Not Found</h1>\n"
+		"\t\t<p>We couldn't find the file you requested."
 		"Perhaps there's a typo in your URL?</p>\n"
-		"</div>\n"
+		"\t</div>\n"
 	"</body></html>\n";
 
 
@@ -311,7 +310,7 @@ int sendall(int sockfd, char *buf, int *len) {
  */
 void* conn_handler(void* thread_args) {
 	int reqLen, replyLen;
-	char buffer[BUFFSIZE];
+	char httpReq[BUFFSIZE];
 	char* reply;
 	char* fileReq;
 	struct sockaddr_in *sin;
@@ -328,20 +327,20 @@ void* conn_handler(void* thread_args) {
 	printf("Got Connection from %d.%d.%d.%d:%d\n", ip[0],ip[1],ip[2],ip[3],
 		 sin->sin_port);
 
-	/* Zero buffer to read into */
-	bzero(buffer, BUFFSIZE);
+	/* Zero httpReq to read into */
+	bzero(httpReq, BUFFSIZE);
 
 	/* Read characters from the connection, then process */
-	reqLen = read(clientsockfd, buffer, BUFFSIZE - 1);
+	reqLen = read(clientsockfd, httpReq, BUFFSIZE - 1);
 
 	if (reqLen < 0) {
 		perror("ERROR reading from socket");
 		exit(EXIT_FAILURE);
 	}
 
-	printf("Here is the Incoming Request: \n\n%s\n", buffer);
+	printf("Here is the Incoming Request: \n\n%s\n", httpReq);
 
-	fileReq = parseRequest(buffer);
+	fileReq = parseRequest(httpReq);
 
 	/* Handle inRequest */
 	reply = respond(webRoot, fileReq);
@@ -365,3 +364,6 @@ void* conn_handler(void* thread_args) {
 
 	return 0;
 }
+
+
+/* ************************************************************************* */

@@ -36,7 +36,7 @@ int main(int argc, char **argv)
 
 	if (argc < 2) {
 		fprintf(stderr,"ERROR, no port provided\n");
-	exit(1);
+		exit(1);
 
 	/* Write default file root if it's not specified */
 	} else if(argc == 2) {
@@ -60,56 +60,59 @@ int main(int argc, char **argv)
 			perror("setsockopt(SO_REUSEADDR) failed");
 	}
 
+	/* Init the server address and set the port number */
 	bzero((char *) &serv_addr, sizeof(serv_addr));
-
 	portno = atoi(argv[1]);
 
 	/* Create address we're going to listen on (given port number)
-	 - converted to network byte order & any IP address for
-	 this machine */
+	 - converted to network byte order & any IP address for this machine */
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_addr.s_addr = INADDR_ANY;
 	/* store in machine-neutral format */
 	serv_addr.sin_port = htons(portno);
 
-	 /* Bind address to the socket */
-	if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+	/* Bind address to the socket */
+	if (bind(sockfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr)) < 0) {
 		perror("ERROR on binding");
 		exit(EXIT_FAILURE);
 	}
 
 	/* Listen on socket - means we're ready to accept connections -
 	 incoming connection requests will be queued */
-	listen(sockfd,5);
+	listen(sockfd, 5);
 	printf("Server: Listening on port %d\n", portno);
 	clilen = sizeof(cli_addr);
 
-	/* Accept a connection - block until a connection is ready to
-	 be accepted. Get back a new file descriptor to communicate on. */
 	while(1) {
-
+		/* Accept a connection - block until a connection is ready to
+		 be accepted. Get back a new file descriptor to communicate on. */
 		clientsockfd = accept(sockfd, (struct sockaddr*) &cli_addr, &clilen);
+		if (clientsockfd < 0) {
+	   		perror("ERROR on accept");
+	   		exit(EXIT_FAILURE);
+		}
+
+		/* Create the arguments to give to the thread */
 		ThreadArgs* thread_args = (ThreadArgs*)malloc(sizeof(ThreadArgs));
 		assert(thread_args);
 		thread_args->clientsockfd = clientsockfd;
 		thread_args->cli_addr = &cli_addr;
 		thread_args->webRoot = webRoot;
 
+		/* Start a new thread to handle the connection.*/
 		if (pthread_create(&thread_id, NULL,  conn_handler,
-					(void*)thread_args) != 0) {
+								(void*)thread_args) != 0) {
 
 				perror("could not create thread");
 				return EXIT_FAILURE;
 	   }
+	   /* Merge the thread before termination */
 	   pthread_join(thread_id , NULL);
 	   free(thread_args);
+
    }
 
-	if (clientsockfd < 0) {
-		perror("ERROR on accept");
-		exit(EXIT_FAILURE);
-	}
-
+	/* Close the socket before exiting */
 	close(sockfd);
 
 	return 0;
