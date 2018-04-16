@@ -198,8 +198,9 @@ char* genHeaders(char* content, int contentLen, char* requestPath,
 		free(typehdr);
 	}
 
-	/* Treat images differently (Warning: Primitive) */
-	if(strcmp(mimeType, "image/jpeg\n") == 0) {
+	/* Treat images differently (Warning: Primitive).
+	 	Also checks that it's not a 404 error as 404 doesn't return a MIME type */
+	if((FoF == FOF_TRUE) || (strcmp(mimeType, "image/jpeg\n") == 0)) {
 		response5 = mem_concat(response4, content, contentLen);
 		*replyLen = contentLen + strlen(response4);
 
