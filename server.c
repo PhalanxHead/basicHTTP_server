@@ -34,6 +34,7 @@ int main(int argc, char **argv)
 	pthread_t thread_id;
 	socklen_t clilen;
 
+	/* Resolve cmd arguments */
 	if (argc < 2) {
 		fprintf(stderr,"ERROR, no port provided\n");
 		exit(1);
@@ -61,7 +62,7 @@ int main(int argc, char **argv)
 	}
 
 	/* Init the server address and set the port number */
-	bzero((char *) &serv_addr, sizeof(serv_addr));
+	bzero((char*) &serv_addr, sizeof(serv_addr));
 	portno = atoi(argv[1]);
 
 	/* Create address we're going to listen on (given port number)

@@ -4,6 +4,10 @@
  * DateBegan:		2018/04/05
  * Name:			respond.c
  * Purpose: 		Contains all the code and logic for the HTTP handler.
+ *
+ * TODO: - Format Replies using s_String type
+ *		 - Change concat to memcat for joinging content in order to be
+ *				more flexible with types
  */
 
 #define BUFFSIZE 4096
@@ -23,7 +27,7 @@
  * Based on code from
  * https://stackoverflow.com/questions/8465006/how-do-i-concatenate-two-strings-in-c
  */
-char* concat(char *s1, char *s2)
+char* concat(char* s1, char* s2)
 {
 	/* +1 for the null-terminator */
 	char* result = malloc(strlen(s1)+strlen(s2)+1);
@@ -38,7 +42,7 @@ char* concat(char *s1, char *s2)
 /*
  * Concats a string and a memory segment
  */
-char* mem_concat(char *s1, char *s2, int s2_len)
+char* mem_concat(char* s1, char* s2, int s2_len)
 {
 
 	int s1_len = strlen(s1);
@@ -121,10 +125,10 @@ char* getCurrTime() {
  * Extremely primitive MIME Handler.
  * Returns the MIME type of the requested file.
  */
-char* getMimeType(char* request) {
+char* getMimeType(s_String* requestPath) {
 
 	/* Get the last '.' in the filename */
-	char* ext = strrchr(request, '.');
+	char* ext = strrchr(requestPath->char_arr, '.');
 	if (!ext) {
 		return NULL;
 	}
@@ -151,8 +155,8 @@ char* getMimeType(char* request) {
 /*
  * Generates the required HTTP Headers.
  */
-char* genHeaders(char* content, int contentLen, char* requestPath,
-						int* replyLen, int FoF) {
+char* genHeaders(char* content, int contentLen, s_String* requestPath,
+						long int* replyLen, int FoF) {
 
 	char *mainhdr, *lenhdr, *conhdr, *typehdr, *timehdr;
 	/* This way of defining response iterations is tiring but if I don't it leaks
@@ -202,11 +206,11 @@ char* genHeaders(char* content, int contentLen, char* requestPath,
 	 	Also checks that it's not a 404 error as 404 doesn't return a MIME type */
 	if((FoF == FOF_TRUE) || (strcmp(mimeType, "image/jpeg\n") == 0)) {
 		response5 = mem_concat(response4, content, contentLen);
-		*replyLen = contentLen + strlen(response4);
+		*replyLen = contentLen + (long int)strlen(response4);
 
 	} else {
 		response5 = concat(response4, content);
-		*replyLen = strlen(response5);
+		*replyLen = (long int)strlen(response5);
 	}
 
 	free(response4);
@@ -223,7 +227,7 @@ char* genHeaders(char* content, int contentLen, char* requestPath,
  * Page is hardcoded for sake of simplicity & sake of remote automated testing
  *  No other good reason not to have a nicer 404 page which is loaded.
  */
-char* fourohfour(int* replyLen) {
+char* fourohfour(s_String* requestPath,long int* replyLen) {
 	char* response;
 	/* 404 Page Content */
 	response = "\n<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n"
@@ -244,7 +248,7 @@ char* fourohfour(int* replyLen) {
 	"</body></html>\n";
 
 
-	response = genHeaders(response, (int)strlen(response), NULL,
+	response = genHeaders(response, (int)strlen(response), requestPath,
 				replyLen, FOF_TRUE);
 
 	return response;
@@ -256,10 +260,10 @@ char* fourohfour(int* replyLen) {
 /*
  * Forms the response to the HTTP Request
  */
-char* respond(char* webRoot, char* request, int* replyLen) {
+char* respond(char* webRoot, s_String *requestPath, long int* replyLen) {
 	char* content;
 	char* response;
-	char* httpReq = concat(webRoot, request);
+	char* httpReq = concat(webRoot, requestPath->char_arr);
 	long int contentLen;
 
 	/* Gets the file */
@@ -269,10 +273,10 @@ char* respond(char* webRoot, char* request, int* replyLen) {
 		printf("File \"%s\" does not exist or is not valid. Sending 404.\n\n",
 				httpReq);
 		free(httpReq);
-		return fourohfour(replyLen);
+		return fourohfour(requestPath, replyLen);
 	}
 
-	response = genHeaders(content, contentLen, request, replyLen, FOF_FALSE);
+	response = genHeaders(content, contentLen, requestPath, replyLen, FOF_FALSE);
 
 	free(httpReq);
 	free(content);
@@ -285,25 +289,28 @@ char* respond(char* webRoot, char* request, int* replyLen) {
 /*
  * Parse's the HTTP request and finds the requested file string.
  */
-char* parseRequest(char* httpReq) {
-	char* fileReq;
+s_String* parseRequest(char* httpReq) {
+	s_String* requestPath;
 	int readChar = STARTFILE;
 	int writeChar = 0;
 
 	/* Open a request buffer */
-	fileReq = (char*)malloc(SHORTBUFF);
-	assert(fileReq);
+	requestPath = (s_String*)malloc(sizeof(s_String));
+	assert(requestPath);
+	requestPath->char_arr = (char*)malloc(SHORTBUFF);
+	assert(requestPath->char_arr);
+	requestPath->len = SHORTBUFF;
 
 	/* Get the requested file & path */
-	while((httpReq[readChar] != ' ') && (writeChar < SHORTBUFF)) {
-		fileReq[writeChar] = httpReq[readChar];
+	while((httpReq[readChar] != ' ') && (writeChar < requestPath->len)) {
+		requestPath->char_arr[writeChar] = httpReq[readChar];
 		writeChar++;
 		readChar++;
 	}
 	/* Add the String Terminator */
-	fileReq[writeChar] = '\0';
+	requestPath->char_arr[writeChar] = '\0';
 
-	return fileReq;
+	return requestPath;
 }
 
 /* ************************************************************************* */
@@ -314,7 +321,7 @@ char* parseRequest(char* httpReq) {
  * http://beej.us/guide/bgnet/html/single/bgnet.html
  */
 
-int sendall(int sockfd, char *buf, int *len) {
+int sendall(int sockfd, char *buf, long int *len) {
 	// how many bytes we've sent
 	int total = 0;
 	// how many we have left to send
@@ -342,12 +349,11 @@ int sendall(int sockfd, char *buf, int *len) {
  * REQUIRES: Threadargs Structure
  */
 void* conn_handler(void* thread_args) {
-	int reqLen, replyLen;
+	long int reqLen, replyLen;
 	char httpReq[BUFFSIZE];
 	char* reply;
-	char* fileReq;
+	s_String* requestPath;
 	struct sockaddr_in *sin;
-
 
 	ThreadArgs* ta = (ThreadArgs*)thread_args;
 	int clientsockfd = ta->clientsockfd;
@@ -373,11 +379,12 @@ void* conn_handler(void* thread_args) {
 
 	printf("Here is the Incoming Request: \n\n%s\n", httpReq);
 
-	fileReq = parseRequest(httpReq);
+	requestPath = parseRequest(httpReq);
 
 	/* Handle inRequest */
-	reply = respond(webRoot, fileReq, &replyLen);
+	reply = respond(webRoot, requestPath, &replyLen);
 
+	/* Only prints whole strings: Images get cut off */
 	printf("Sending the message:\n%s\n\n", reply);
 
 	/* Check that everything sends without error */
@@ -386,7 +393,7 @@ void* conn_handler(void* thread_args) {
 	}
 
 	free(reply);
-	free(fileReq);
+	free(requestPath);
 
 	/* close socket */
 	printf("Closing connection to %d.%d.%d.%d:%d\n", ip[0],ip[1],ip[2],ip[3],

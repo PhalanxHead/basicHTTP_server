@@ -18,6 +18,17 @@
 #include <unistd.h>
 #include <pthread.h>
 
+/*
+ * String Structure -> Holds the length as well.
+ */
+typedef struct s_string {
+	char* char_arr;
+	long int len;
+} s_String;
+
+/*
+ * ThreadArgs struct: Holds the necessary file values for the connection thread.
+ */
 typedef struct s_thread_args {
 	int clientsockfd;
 	struct sockaddr_in *cli_addr;
