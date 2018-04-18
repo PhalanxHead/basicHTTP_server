@@ -20,6 +20,8 @@
 
 /*
  * String Structure -> Holds the length as well.
+ * I had meant for this to be used for all of the string types but never
+ * quite got to implementing it in a way that worked. So err, sorry about that.
  */
 typedef struct s_string {
 	char* char_arr;
